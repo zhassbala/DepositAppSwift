@@ -6,56 +6,85 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @State private var amount: String = ""
+    @State private var selectedPeriod: PlacementPeriod = .threeMonths
+    
+    private var finalAmount: Double {
+        // Convert string to number, handling both dot and comma as decimal separators
+        let cleanedAmount = amount.replacingOccurrences(of: ",", with: ".")
+        guard let amountValue = Double(cleanedAmount) else { return 0 }
+        
+        let calculation = DepositCalculation(amount: amountValue, period: selectedPeriod)
+        return calculation.calculateFinalAmount()
+    }
+    
+    func formatCurrency (_ payload: Double) -> String {
+        return "\(String(format: "%.2f", payload).replacingOccurrences(of:".", with:","))₸"
+    }
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        VStack(spacing: 20) {
+            Text("Deposit Calculator")
+                .font(.largeTitle)
+                .padding()
+            
+            VStack(alignment: .leading/*, spacing: 10*/) {
+                Text("Deposit amount")
+                    .padding(.horizontal)
+
+                HStack {
+                    TextField("Enter amount", text: $amount)
+                        .keyboardType(.decimalPad)
+                        .padding(12)
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(8)
+                        .padding(.leading)
+                        .padding(.bottom, 5)
+                        .font(.system(size: 14))
+                    Text("₸")
+                        .padding(.trailing)
+                        .font(.title)
+                    
+                }
+                
+                Picker("Select period", selection: $selectedPeriod) {
+                    ForEach(PlacementPeriod.allCases, id: \.self) { period in
+                        Text(period.displayText)
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
+            
+            VStack {
+                Text("💰You will save up   ")
+                    .font(.headline)
+                Text(formatCurrency(finalAmount))
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundColor(.green)
+                Text("*It is the preliminary calculation")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
             }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            .padding()
+            .cornerRadius(10)
+            
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Rate of return: \(String(format: "%.1f", selectedPeriod.rateOfReturn))%")
+                    .foregroundColor(.gray)
+                Text("Effective rate: \(String(format: "%.1f", selectedPeriod.effectiveRate))%")
+                    .foregroundColor(.gray)
             }
+            .padding()
+            
+            Spacer()
         }
+        .padding()
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
-}
+} 
